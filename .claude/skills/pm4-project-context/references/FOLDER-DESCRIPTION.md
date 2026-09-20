@@ -87,12 +87,12 @@ Styled after gemeindeschwyz.ch.
 
 <!-- BEGIN GENERATED INVENTORY -->
 
-*Generated 2026-09-04 by `refresh_folder_description.py`.*
+*Generated 2026-09-20 by `refresh_folder_description.py`.*
 
 ## Repository state
 
 - Branch: `main`
-- HEAD: `f554e8c Handle Gemini API errors gracefully; switch default model`
+- HEAD: `4ea7150 Add PROGRESSION log, project-context skill, and CLAUDE.md`
 - Remote: https://github.com/reigenmann-collab/RAGChatBotSZ.git
 - Working tree: has uncommitted changes
 
@@ -106,14 +106,21 @@ Styled after gemeindeschwyz.ch.
 
 | Path | Size |
 |---|---|
-| `.claude/launch.json` | 253 B |
+| `.claude/launch.json` | 385 B |
+| `.claude/skills/pm4-project-context/SKILL.md` | 6.9 KB |
+| `.claude/skills/pm4-project-context/references/FOLDER-DESCRIPTION.md` | 6.9 KB |
+| `.claude/skills/pm4-project-context/references/decisions.md` | 9.3 KB |
+| `.claude/skills/pm4-project-context/scripts/refresh_folder_description.py` | 5.2 KB |
 | `.devcontainer/devcontainer.json` | 1.0 KB |
-| `.env.example` | 376 B |
+| `.env.example` | 649 B |
 | `.gitignore` | 420 B |
 | `.streamlit/config.toml` | 410 B |
-| `README.md` | 5.2 KB |
-| `app/streamlit_app.py` | 19.9 KB |
-| `config.yaml` | 7.7 KB |
+| `CLAUDE.md` | 2.4 KB |
+| `PROGRESSION/001-prototype-build-and-deploy.md` | 10.8 KB |
+| `PROGRESSION/INDEX.md` | 2.6 KB |
+| `README.md` | 5.9 KB |
+| `app/streamlit_app.py` | 21.8 KB |
+| `config.yaml` | 8.4 KB |
 | `data/index/chunks.jsonl` | 80.3 KB |
 | `data/index/corpus.faiss` | 54.0 KB |
 | `data/index/meta.json` | 329 B |

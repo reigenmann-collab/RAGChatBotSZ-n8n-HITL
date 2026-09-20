@@ -213,12 +213,13 @@ def section(label: str) -> None:
 
 @st.cache_resource(show_spinner=False)
 def _load():
+    import handoff
     from config import load_config
     from pipeline import answer_query
     from retrieve import index_stats
     from routing import active_threshold
 
-    return load_config(), answer_query, index_stats, active_threshold
+    return load_config(), answer_query, index_stats, active_threshold, handoff
 
 
 def sidebar(cfg, stats, threshold) -> bool:
@@ -344,6 +345,47 @@ def render_escalation(result) -> None:
         )
 
 
+def render_handoff(result, handoff, show_inspection: bool) -> None:
+    """The citizen's next step on an escalation: hand the inquiry over to the
+    n8n case intake, with everything the assistant already knows prefilled.
+
+    This sits OUTSIDE the "Prüfansicht" toggle on purpose. Every other piece of
+    escalation machinery in this app is pilot-inspection content that a citizen
+    never sees; this one button is the part that is meant for them. Without it
+    the prototype tells a citizen their inquiry "was forwarded" when in truth
+    nothing left the process - an honesty gap the capstone closes.
+    """
+    if not result["escalate"]:
+        return
+
+    section("Weiter zur Sachbearbeitung")
+    url = handoff.form_url(result)
+    if not url:
+        st.info(
+            "Es ist kein Eskalationsformular hinterlegt. `handoff.form_url` in "
+            "`config.yaml` setzen oder `PM4_HANDOFF_FORM_URL` in `.env` - siehe "
+            "`n8n/README.md`."
+        )
+        return
+
+    st.write(
+        "Ihre Frage und die Einschätzung des Assistenten sind im Formular "
+        "bereits ausgefüllt. Ergänzen Sie nur noch Name und E-Mail-Adresse; Sie "
+        "erhalten anschliessend eine Eingangsbestätigung mit Geschäftszeichen."
+    )
+    st.link_button(
+        "Anfrage an die Sachbearbeitung weiterleiten", url, type="primary"
+    )
+
+    # Showing the handed-over payload is the clearest way to demonstrate where
+    # this app's responsibility ends and the workflow's begins.
+    if show_inspection:
+        with st.expander("Was an n8n übergeben wird"):
+            for key, value in handoff.build_params(result).items():
+                st.markdown(f"**`{key}`** — {value}")
+            st.caption(f"{len(url)} Zeichen · Prefill greift nur bei aktivem Workflow.")
+
+
 def render_sources(sources: list[dict]) -> None:
     section("Quellen")
     rows = ['<div class="gs-doclist">']
@@ -365,7 +407,7 @@ def main() -> None:
     inject_css()
     top_bar()
 
-    cfg, answer_query, index_stats, active_threshold = _load()
+    cfg, answer_query, index_stats, active_threshold, handoff = _load()
 
     try:
         stats = index_stats()
@@ -453,6 +495,8 @@ def main() -> None:
         if show_inspection and result["escalate"] and result.get("draft_answer"):
             with st.expander("Nicht ausgelieferter Entwurf (nur zur Prüfung im Pilot)"):
                 st.write(result["draft_answer"])
+
+        render_handoff(result, handoff, show_inspection)
 
         if result["sources"]:
             render_sources(result["sources"])
