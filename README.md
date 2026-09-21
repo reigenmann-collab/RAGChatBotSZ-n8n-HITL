@@ -1,3 +1,91 @@
+# When the assistant says no — a human-in-the-loop hand-off for a municipal RAG chatbot
+
+> **Artifact for the SCI AI Tools Expert Training capstone.** This repository is
+> the PM4 prototype (documented further down) plus one addition: when the
+> assistant declines to answer, the citizen is handed to an **n8n** workflow that
+> issues a case reference and e-mails both the citizen and the caseworker.
+>
+> The original demonstrator, **without** the hand-off, is still deployed:
+> <https://ragchatbotsz-4gfjul5ikk4khr3wotj9s8.streamlit.app/> (separate
+> repository, unchanged).
+
+## The problem
+
+The assistant already knew *when* to refuse: low composite confidence, a failed
+coverage check, or a legal topic that is never answered automatically. What it
+never had was somewhere to send the refusal. It told the citizen their inquiry
+"was forwarded" while nothing left the process. A system that declines and then
+drops the question looks like it worked, which is worse than one that never
+declines.
+
+## What this adds
+
+```
+Streamlit app                        n8n
+─────────────                        ───
+escalation decision
+  + model-written case summary
+        │
+        └─ link, prefilled ──▶ form ─▶ case reference ─▶ e-mail to citizen
+                                                      ─▶ e-mail to caseworker
+                                                      ─▶ confirmation page
+```
+
+| File | Role |
+|---|---|
+| [`src/handoff.py`](src/handoff.py) | builds the prefilled form link from a pipeline result |
+| [`app/streamlit_app.py`](app/streamlit_app.py) | `render_handoff()`: the button in the escalation branch |
+| [`n8n/pm4-escalation-workflow.json`](n8n/pm4-escalation-workflow.json) | the workflow export: form → Code → two e-mails → confirmation |
+| [`n8n/README.md`](n8n/README.md) | full setup, the parameter contract, design notes, troubleshooting |
+
+Retrieval, scoring, coverage and routing are untouched. The link is followed by
+the citizen's browser rather than the app's server, so nothing in the request
+path can fail when n8n is down and no shared secret is needed. The cost: the
+hand-off is an invitation, not a guarantee. If the citizen does not click,
+nothing arrives.
+
+## Run it
+
+You need Docker, Python, a [Gemini API key](https://aistudio.google.com/apikey)
+and a Google **app password** for the e-mails.
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env            # then paste your GEMINI_API_KEY
+docker run -d --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
+```
+
+Open <http://localhost:5678>, import `n8n/pm4-escalation-workflow.json`, attach an
+SMTP credential to the two mail nodes and **Publish** the workflow (prefill only
+works on a published workflow's production URL). Both mail nodes send from and to
+`reigenmann@gmail.com`; change those two addresses to your own before running.
+Details in [`n8n/README.md`](n8n/README.md).
+
+```bash
+python -m streamlit run app/streamlit_app.py
+```
+
+Ask *"Ich habe eine Busse fürs Parkieren erhalten und möchte Einsprache erheben."*
+It hard-routes without an answer attempt. Click **Anfrage an die Sachbearbeitung
+weiterleiten**, fill in a name and an address you control, and submit. Use
+synthetic inquiries only.
+
+No API key or password is stored in this repository: `.env` is git-ignored, and
+the SMTP credential lives inside n8n.
+
+## Limits
+
+- **No case register.** The caseworker's inbox is the queue; there is no status
+  and no audit trail. This is a deliberate scope cut, not an oversight.
+- **Localhost only.** n8n runs on your machine, so the link works for whoever
+  runs the demo. A public pilot needs a hosted n8n.
+- **The 0.82 threshold is a placeholder**, not a calibrated value. The
+  evaluation chain described below has not been run.
+- **The e-mails are marked as a prototype.** They are not communications from
+  Gemeinde Schwyz.
+
+---
+
 # PM4 — Departmental Pilot (Traffic Department)
 
 Working prototype of the Community RAG Chatbot for milestone **PM4** of the
@@ -106,20 +194,6 @@ operational cost of that safety level. `--apply` writes the derived value into
 `report_results.py` writes `eval/results/pm4_results.md` with the
 success-criteria table in the report's own format, including Wilson intervals
 and the rule-of-three bound.
-
----
-
-## Escalation hand-off (n8n)
-
-This working copy carries a second deliverable for a different course, the SCI
-**AI Tools Expert Training** capstone: the escalation branch now hands the
-inquiry to an n8n workflow that issues a case reference and mails both the
-citizen and the caseworker.
-
-The prototype decided *that* an inquiry needs a human but had nowhere to send it.
-The hand-off closes that gap without touching retrieval, scoring, coverage or
-routing. Setup, the parameter contract and the limits are in
-[`n8n/README.md`](n8n/README.md).
 
 ---
 
