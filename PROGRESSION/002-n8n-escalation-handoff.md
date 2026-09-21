@@ -128,7 +128,10 @@ to this copy and does not have the escalation button.
 
 - Send one real submission through the full workflow and confirm both e-mails
   arrive (form, Code node and Form Ending are verified; SMTP delivery is not).
-- The capstone's other two deliverables: the one-page PDF and the two-minute
-  video.
+- The capstone's other two deliverables. The one-pager plus a screenshot
+  appendix exists as `rene-eigenmann-capstone.docx` (deliberately **not
+  committed**: the appendix shows the author's test e-mail addresses and the repo
+  is public). It still needs the Loom link, then an export to PDF for upload. The
+  two-minute video is outstanding.
 - PM4's own open thread is untouched and still open: the evaluation chain has
   never been run, so the 0.82 threshold remains a placeholder.
