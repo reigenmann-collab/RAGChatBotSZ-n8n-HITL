@@ -60,13 +60,14 @@ An app password requires 2-Step Verification on the Google account; generate one
 at <https://myaccount.google.com/apppasswords>. Create it yourself — it is a
 credential and does not belong in this repo or in a chat window.
 
-### 4. Activate the workflow
+### 4. Publish the workflow
 
-Toggle **Active** (top right). This matters more than it looks:
+Click **Publish** (top right; older n8n versions call it **Active**). This
+matters more than it looks:
 
-> **n8n only honours query-parameter prefill on the production URL of an active
-> workflow.** On the test URL the fields render empty and nothing warns you.
-> Almost every "the prefill doesn't work" report is this.
+> **n8n only honours query-parameter prefill on the production URL of a
+> published workflow.** On the test URL the fields render empty and nothing warns
+> you. Almost every "the prefill doesn't work" report is this.
 
 Copy the **production** form URL from the Form Trigger node. With the default
 path it is:
@@ -174,7 +175,9 @@ straight to the right person. The citizen mail sets Reply-To to the caseworker.
 | Symptom | Cause |
 |---|---|
 | Form opens but fields are empty | Test URL, or the workflow is not active. See step 4. |
-| n8n rejects the completion page | Set the Form Trigger's **Respond** to *Using Respond to Webhook Node*. |
+| Form says "Problem loading form" / URL returns 404 | Workflow not published, or the **Form Path** option (Form Trigger ▸ Options) is not `pm4-eskalation` — n8n then serves the form under a random UUID instead. |
+| Log: `No Respond to Webhook node found in the workflow` | The Form Trigger's **Respond When** is set to *Using 'Respond to Webhook' Node*. With a Form Ending node it must be *Form Is Submitted* (the default). |
+| `curl` gets `401` on the form URL | Expected: the trigger has *Ignore Bots* on, and curl's User-Agent looks like a bot. Browsers are fine. |
 | `Invalid login` from SMTP | Account password used instead of an app password. |
 | Mail sends but the body shows `{{ ... }}` | The node's HTML field lost its leading `=` (expression mode). |
 | Button missing in the app | The inquiry was answered, not escalated — check the decision chip. |

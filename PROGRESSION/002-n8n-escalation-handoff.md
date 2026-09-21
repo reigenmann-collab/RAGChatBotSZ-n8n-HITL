@@ -75,24 +75,59 @@ field (`email` must stay literal to work as an address).
 - Streamlit app run on port 8502; hard-routed inquiry produced the button, and
   the rendered href decoded to all eight parameters with umlauts intact (739
   chars, well under the 1800 ceiling).
-- **The n8n workflow itself has not been imported or executed.** No email has
-  been sent. That is the immediate next step and needs the SMTP app password,
-  which only the user can create.
+- The n8n workflow was **not** exercised when first written — see the
+  correction below, which is what that gap cost.
 
-## Repository split — read before pushing
+## Correction, 2026-09-21 — the workflow shipped broken, and how it was found
 
-This copy still has `origin` pointing at
-`github.com/reigenmann-collab/RAGChatBotSZ`, the **PM4** repository, which also
-auto-deploys to Streamlit Cloud on push to `main`. Pushing this work there would
-put capstone material into the PM4 submission and redeploy the PM4 demo.
+First real import failed: the form showed "Problem loading form". Two defects,
+both mine, both from writing the Form Trigger's parameters from memory instead of
+checking them against the installed node:
 
-Give this copy its own remote (or no remote) before committing anything.
+1. **`responseMode: "responseNode"` is invalid for Form Trigger v2.2 when the
+   workflow ends in a Form Ending node.** n8n throws `No Respond to Webhook node
+   found in the workflow`. The correct value is the default, `onReceived`
+   ("Form Is Submitted"). The first README even carried a troubleshooting row
+   that hedged on exactly this setting — a guess written down as advice, and
+   wrong.
+2. **`path` is not a top-level parameter.** n8n dropped it silently on import, so
+   the form registered under the random `webhookId` instead of
+   `pm4-eskalation`, and the app's link pointed at nothing. The real setting is
+   `options.path` ("Form Path").
+
+Diagnosis came from `docker logs n8n` and from reading the validator in the
+installed `n8n-nodes-base`, not from the UI, which only said "deactivated or no
+longer exist".
+
+The fix was verified in a **throwaway n8n container on another port** before
+touching the user's instance: production form 200, hidden fields prefilled,
+question textarea prefilled, submission returned a `formWaitingUrl`, and the
+completion page rendered `SZ-VK-20260921-9183` with a 28 Sep deadline (five
+working days from Monday 21 Sep). The mail nodes were left out of that test, so
+**no e-mail has yet been sent by this workflow.** The user's instance was then
+patched in place (backup taken; SMTP credential preserved) and restarted.
+
+Two smaller things found on the way: `ignoreBots` makes `curl` get a 401 (browsers
+are fine), and posting the consent checkbox needs a JSON array
+(`["<option text>"]`), not the bare string.
+
+**Lesson for the one-pager's "surprised me" line:** the agent's workflow passed
+every check that did not involve running n8n, and failed on first contact.
+
+## Repository split — resolved
+
+This working copy began with `origin` pointing at the **PM4** repository, which
+auto-deploys to Streamlit Cloud on push to `main`. Pushing capstone work there
+would have polluted the PM4 submission and redeployed the PM4 demo. On 2026-09-20
+the old remote was renamed `pm4-upstream` (nothing was ever pushed to it) and
+`origin` now points at the capstone's own repository,
+`reigenmann-collab/RAGChatBotSZ-n8n-HITL`. The deployed PM4 app has no connection
+to this copy and does not have the escalation button.
 
 ## Left open
 
-- Import, wire the SMTP credential, activate, and run the workflow end to end.
-- Confirm the Form Trigger's `responseMode: "responseNode"` is accepted; if n8n
-  objects, set **Respond** to *Using Respond to Webhook Node* in the UI.
+- Send one real submission through the full workflow and confirm both e-mails
+  arrive (form, Code node and Form Ending are verified; SMTP delivery is not).
 - The capstone's other two deliverables: the one-page PDF and the two-minute
   video.
 - PM4's own open thread is untouched and still open: the evaluation chain has

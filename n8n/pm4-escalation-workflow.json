@@ -3,7 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "path": "pm4-eskalation",
         "formTitle": "Anfrage an die Sachbearbeitung Strassenverkehr",
         "formDescription": "Gemeinde Schwyz · Pilot PM4. Der Auskunfts-Assistent konnte Ihre Frage nicht abschliessend beantworten. Ihre Angaben gehen an die zuständige Sachbearbeitung. Prototyp einer Ausbildung – keine rechtsverbindliche Auskunft.",
         "formFields": {
@@ -84,11 +83,11 @@
             }
           ]
         },
-        "responseMode": "responseNode",
         "options": {
           "appendAttribution": false,
           "buttonLabel": "Anfrage absenden",
-          "ignoreBots": true
+          "ignoreBots": true,
+          "path": "pm4-eskalation"
         }
       },
       "type": "n8n-nodes-base.formTrigger",
