@@ -203,6 +203,19 @@ routing:
     - "unrechtmaessig"
   hard_route_reason: "Rechtliche Streitigkeit oder Rechtsmittel - wird ohne automatisierten Antwortversuch an eine Sachbearbeiterin oder einen Sachbearbeiter weitergeleitet."
 
+# --- Hand-off to the n8n case intake (AI Tools capstone) --------------------
+# The prototype escalates but owns no case queue. Everything after the citizen
+# clicks "weiterleiten" belongs to the n8n workflow in n8n/. See src/handoff.py
+# for why this is a link and not a server-side webhook call.
+handoff:
+  enabled: true
+  # The PRODUCTION form URL, not the test URL: n8n only honours query-parameter
+  # prefill on an ACTIVE workflow, and it fails silently otherwise - the fields
+  # simply render empty. Override without touching the repo by setting
+  # PM4_HANDOFF_FORM_URL in .env.
+  form_url: "http://localhost:5678/form/pm4-eskalation"
+  max_url_chars: 1800
+
 # --- Logging (REQ-08 pseudonymisation, REQ-09 auditability) -----------------
 logging:
   path: "data/logs/audit.jsonl"

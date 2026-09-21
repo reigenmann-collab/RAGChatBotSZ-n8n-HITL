@@ -1,0 +1,241 @@
+{
+  "name": "PM4 – Eskalation Strassenverkehr (Gemeinde Schwyz)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Anfrage an die Sachbearbeitung Strassenverkehr",
+        "formDescription": "Gemeinde Schwyz · Pilot PM4. Der Auskunfts-Assistent konnte Ihre Frage nicht abschliessend beantworten. Ihre Angaben gehen an die zuständige Sachbearbeitung. Prototyp einer Ausbildung – keine rechtsverbindliche Auskunft.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Anfrage",
+              "fieldType": "textarea",
+              "placeholder": "Worum geht es?",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Name",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "E-Mail",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Telefon",
+              "fieldType": "text",
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "Weitere Angaben",
+              "fieldType": "textarea",
+              "placeholder": "Optional: Adresse, Kennzeichen, Fristen …",
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "Einwilligung",
+              "fieldType": "checkbox",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Ich bin einverstanden, dass meine Angaben zur Bearbeitung dieser Anfrage an die zuständige Sachbearbeitung weitergeleitet werden."
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "falltyp",
+              "fieldValue": "manuell"
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "vertrauenswert",
+              "fieldValue": ""
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "schwelle",
+              "fieldValue": ""
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "eskalationsgrund",
+              "fieldValue": ""
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "betreff",
+              "fieldValue": ""
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "offene_punkte",
+              "fieldValue": ""
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "quelle",
+              "fieldValue": "formular-direkt"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Anfrage absenden",
+          "ignoreBots": true,
+          "path": "pm4-eskalation"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Formular Bürgeranfrage",
+      "webhookId": "b2000000-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PM4 — \"Fall aufbereiten\" (Code node of pm4-escalation-workflow.json)\n//\n// Reference copy for review. The authoritative version is the one inside the\n// workflow JSON; edit there (or in the n8n UI) and mirror it back here.\n//\n// In:  one form submission.\n// Out: one normalised case, from which both emails and the confirmation page\n//      are built. All formatting decisions live here so the two email nodes\n//      stay readable templates.\n\nconst f = $input.first().json;\n\n// Form field keys are the visible field LABELS, and the field NAMES for hidden\n// fields. Reading through a helper keeps a renamed label from throwing.\nconst text = (...keys) => {\n  for (const k of keys) {\n    const v = f[k];\n    if (v === undefined || v === null) continue;\n    const s = Array.isArray(v) ? v.join(', ') : String(v);\n    if (s.trim() !== '') return s.trim();\n  }\n  return '';\n};\n\n// Citizen free text is interpolated into HTML mail. Escape it. This is the one\n// genuine injection surface in the workflow.\nconst esc = (s) => String(s)\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;');\n\nconst nl2br = (s) => esc(s).replace(/\\n/g, '<br>');\n\n// --- Geschäftszeichen -------------------------------------------------------\nconst now = new Date();\nconst p2 = (n) => String(n).padStart(2, '0');\nconst datum = `${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}`;\nconst lauf = String(Math.floor(Math.random() * 9000) + 1000);\nconst caseRef = `SZ-VK-${datum}-${lauf}`;\n\nconst fmt = (d, opts) => new Intl.DateTimeFormat('de-CH', { timeZone: 'Europe/Zurich', ...opts }).format(d);\nconst eingang = fmt(now, { dateStyle: 'long', timeStyle: 'short' });\n\n// Antwortfrist: fünf Arbeitstage. Feiertage sind bewusst nicht berücksichtigt —\n// im PoC ist das eine Richtangabe, keine Zusicherung.\nconst frist = new Date(now);\nlet offen = 5;\nwhile (offen > 0) {\n  frist.setDate(frist.getDate() + 1);\n  const tag = frist.getDay();\n  if (tag !== 0 && tag !== 6) offen--;\n}\n\n// --- Felder -----------------------------------------------------------------\nconst anfrage = text('Anfrage');\nconst name = text('Name');\nconst email = text('E-Mail');\nconst telefon = text('Telefon');\nconst weitere = text('Weitere Angaben');\n\n// Diese fünf liefert der Assistent als Query-Parameter mit. Wer das Formular\n// direkt aufruft, hat sie nicht — dann ist der Fall schlicht \"manuell\", und der\n// Sachbearbeitende sieht das auch so.\nconst falltyp = text('falltyp') || 'manuell';\nconst vertrauenswert = text('vertrauenswert') || 'nicht berechnet';\nconst schwelle = text('schwelle') || '—';\nconst grund = text('eskalationsgrund') || 'Direkt über das Formular eingereicht.';\nconst betreff = text('betreff') || 'Bürgeranfrage Strassenverkehr';\nconst quelle = text('quelle') || 'formular-direkt';\n\nconst FALLTYP_KLARTEXT = {\n  escalate_confidence: 'Vertrauenswert unter Schwelle',\n  escalate_coverage: 'Deckungsprüfung REQ-11 nicht bestanden',\n  hard_route: 'Hart geroutet — rechtliches Thema, kein Antwortversuch',\n  manuell: 'Direkt über das Formular eingereicht',\n};\n\n// Der Assistent überträgt die offenen Punkte pipe-separiert, weil eine Liste\n// nicht in einen Query-Parameter passt.\nconst offenePunkte = text('offene_punkte')\n  .split('|')\n  .map((s) => s.trim())\n  .filter(Boolean);\n\nconst offeneHtml = offenePunkte.length\n  ? '<ul style=\"margin:.3rem 0 0 0;padding-left:1.2rem\">' +\n    offenePunkte.map((p) => `<li>${esc(p)}</li>`).join('') +\n    '</ul>'\n  : '<p style=\"color:#777;margin:.3rem 0 0 0\">Keine vom Assistenten vorbereiteten Punkte.</p>';\n\n// Naming contract, because both emails are HTML and n8n expressions do NOT\n// escape what they interpolate: anything ending in _html is already escaped and\n// safe to drop into markup. Everything else is plain text and belongs only in a\n// subject line or an address field — never in the body.\nreturn [{\n  json: {\n    case_ref: caseRef,\n    eingang,\n    frist: fmt(frist, { dateStyle: 'long' }),\n\n    // plain — addressing and subject lines only\n    email,                        // used as toEmail / replyTo, must stay literal\n    betreff,                      // used as the caseworker subject\n    anfrage,\n    falltyp,\n    quelle,\n    offene_punkte: offenePunkte,\n\n    // escaped — safe for the mail bodies\n    name_html: esc(name),\n    email_html: esc(email),\n    telefon_html: esc(telefon || '—'),\n    betreff_html: esc(betreff),\n    grund_html: esc(grund),\n    anfrage_html: nl2br(anfrage),\n    weitere_html: weitere ? nl2br(weitere) : '<span style=\"color:#777\">keine</span>',\n    offene_punkte_html: offeneHtml,\n\n    // safe by construction — derived from fixed vocabularies, not user input\n    falltyp_klartext: FALLTYP_KLARTEXT[falltyp] || esc(falltyp),\n    vertrauenswert: esc(vertrauenswert),\n    schwelle: esc(schwelle),\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Fall aufbereiten"
+    },
+    {
+      "parameters": {
+        "fromEmail": "reigenmann@gmail.com",
+        "toEmail": "={{ $('Fall aufbereiten').item.json.email }}",
+        "subject": "=[PM4-Prototyp] Eingangsbestätigung {{ $('Fall aufbereiten').item.json.case_ref }} – Ihre Anfrage an die Gemeinde Schwyz",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#050924;max-width:640px\"><div style=\"background:#fff4e0;border-left:4px solid #a15c00;padding:10px 14px;font-size:13px;margin-bottom:20px;border-radius:0 3px 3px 0\"><b>Prototyp / Ausbildungsprojekt.</b> Diese Nachricht stammt aus einem studentischen Prototyp (SCI AI Tools Expert Training) und ist <b>keine</b> Mitteilung der Gemeinde Schwyz. Sie ist nicht rechtsverbindlich.</div><div style=\"border-bottom:3px solid #e10a12;padding-bottom:8px;margin-bottom:18px\"><span style=\"font-family:Arial,sans-serif;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;color:#444\">Gemeinde</span> <span style=\"font-weight:800;font-size:19px;color:#e10a12\">schwyz</span><div style=\"font-size:12px;color:#777;margin-top:2px\">Auskunfts-Assistent Strassenverkehr</div></div><p>Guten Tag {{ $('Fall aufbereiten').item.json.name_html }}</p><p>Ihre Anfrage ist eingegangen. Der Auskunfts-Assistent hat sie <b>nicht</b> automatisch beantwortet, sondern an die Sachbearbeitung Strassenverkehr weitergeleitet: {{ $('Fall aufbereiten').item.json.falltyp_klartext }}.</p><table style=\"border-collapse:collapse;margin:16px 0;font-size:14px\"><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Geschäftszeichen</td><td style=\"padding:5px 0;font-family:Consolas,monospace;\"><b>{{ $('Fall aufbereiten').item.json.case_ref }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Eingang</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.eingang }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Antwort bis</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.frist }}</b></td></tr></table><p style=\"margin-bottom:4px\"><b>Ihre Anfrage</b></p><blockquote style=\"margin:0;padding:10px 14px;background:#f8f9fa;border-left:4px solid #050924;border-radius:0 3px 3px 0\">{{ $('Fall aufbereiten').item.json.anfrage_html }}</blockquote><p>Bitte geben Sie bei Rückfragen das Geschäftszeichen an. Sie können direkt auf diese E-Mail antworten.</p><p>Freundliche Grüsse<br>Sachbearbeitung Strassenverkehr (Pilot)</p><p style=\"font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;margin-top:22px\">PM4 Auskunfts-Assistent Strassenverkehr · Eskalationsworkflow (n8n) · Fallquelle: {{ $('Fall aufbereiten').item.json.quelle }} · Es wird kein Fallregister geführt; diese E-Mail ist der Vorgang.</p></div>",
+        "options": {
+          "replyTo": "reigenmann@gmail.com",
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        440,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Bestätigung an Bürger:in",
+      "credentials": {
+        "smtp": {
+          "id": "pm4-smtp",
+          "name": "SMTP (Gmail App-Passwort)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "reigenmann@gmail.com",
+        "toEmail": "reigenmann@gmail.com",
+        "subject": "=[PM4-Prototyp] {{ $('Fall aufbereiten').item.json.case_ref }} · {{ $('Fall aufbereiten').item.json.betreff }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#050924;max-width:640px\"><div style=\"background:#fff4e0;border-left:4px solid #a15c00;padding:10px 14px;font-size:13px;margin-bottom:20px;border-radius:0 3px 3px 0\"><b>Prototyp / Ausbildungsprojekt.</b> Diese Nachricht stammt aus einem studentischen Prototyp (SCI AI Tools Expert Training) und ist <b>keine</b> Mitteilung der Gemeinde Schwyz. Sie ist nicht rechtsverbindlich.</div><div style=\"border-bottom:3px solid #e10a12;padding-bottom:8px;margin-bottom:18px\"><span style=\"font-family:Arial,sans-serif;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;color:#444\">Gemeinde</span> <span style=\"font-weight:800;font-size:19px;color:#e10a12\">schwyz</span><div style=\"font-size:12px;color:#777;margin-top:2px\">Eskalation aus dem Auskunfts-Assistenten</div></div><p style=\"margin-top:0\"><b>{{ $('Fall aufbereiten').item.json.betreff_html }}</b></p><table style=\"border-collapse:collapse;margin:14px 0;font-size:14px\"><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Geschäftszeichen</td><td style=\"padding:5px 0;font-family:Consolas,monospace;\"><b>{{ $('Fall aufbereiten').item.json.case_ref }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Eingang</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.eingang }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Antwort bis</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.frist }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Eskalationsgrund</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.falltyp_klartext }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Vertrauenswert C</td><td style=\"padding:5px 0;font-family:Consolas,monospace;\"><b>{{ $('Fall aufbereiten').item.json.vertrauenswert }} (Schwelle {{ $('Fall aufbereiten').item.json.schwelle }})</b></td></tr></table><p style=\"margin-bottom:4px\"><b>Anfrage der Bürgerin / des Bürgers</b></p><blockquote style=\"margin:0;padding:10px 14px;background:#f8f9fa;border-left:4px solid #e10a12;border-radius:0 3px 3px 0\">{{ $('Fall aufbereiten').item.json.anfrage_html }}</blockquote><p style=\"margin:16px 0 4px 0\"><b>Technische Begründung des Routings</b></p><p style=\"margin:0;color:#555\">{{ $('Fall aufbereiten').item.json.grund_html }}</p><p style=\"margin:16px 0 0 0\"><b>Vom Assistenten vorbereitete Punkte</b><br><span style=\"font-size:12px;color:#777\">Modellgeneriert — vor Verwendung prüfen.</span></p>{{ $('Fall aufbereiten').item.json.offene_punkte_html }}<p style=\"margin:16px 0 4px 0\"><b>Kontakt</b></p><table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Name</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.name_html }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">E-Mail</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.email_html }}</b></td></tr><tr><td style=\"padding:5px 14px 5px 0;color:#666;white-space:nowrap;vertical-align:top\">Telefon</td><td style=\"padding:5px 0;\"><b>{{ $('Fall aufbereiten').item.json.telefon_html }}</b></td></tr></table><p style=\"margin-top:14px;font-size:13px;color:#555\">Ergänzende Angaben: {{ $('Fall aufbereiten').item.json.weitere_html }}</p><p style=\"font-size:13px;color:#555\">Ein <b>Antworten</b> auf diese E-Mail geht direkt an die Bürgerin oder den Bürger.</p><p style=\"font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;margin-top:22px\">PM4 Auskunfts-Assistent Strassenverkehr · Eskalationsworkflow (n8n) · Fallquelle: {{ $('Fall aufbereiten').item.json.quelle }} · Es wird kein Fallregister geführt; diese E-Mail ist der Vorgang.</p></div>",
+        "options": {
+          "replyTo": "={{ $('Fall aufbereiten').item.json.email }}",
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Fall an Sachbearbeitung",
+      "credentials": {
+        "smtp": {
+          "id": "pm4-smtp",
+          "name": "SMTP (Gmail App-Passwort)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Ihre Anfrage ist eingegangen",
+        "completionMessage": "=Geschäftszeichen: {{ $('Fall aufbereiten').item.json.case_ref }}\n\nEine Bestätigung wurde an {{ $('Fall aufbereiten').item.json.email }} gesendet. Die Sachbearbeitung Strassenverkehr meldet sich bis zum {{ $('Fall aufbereiten').item.json.frist }}.\n\nPrototyp einer Ausbildung – keine rechtsverbindliche Auskunft.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Bestätigungsseite",
+      "webhookId": "b2000000-0000-4000-8000-000000000005"
+    }
+  ],
+  "connections": {
+    "Formular Bürgeranfrage": {
+      "main": [
+        [
+          {
+            "node": "Fall aufbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fall aufbereiten": {
+      "main": [
+        [
+          {
+            "node": "Bestätigung an Bürger:in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestätigung an Bürger:in": {
+      "main": [
+        [
+          {
+            "node": "Fall an Sachbearbeitung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fall an Sachbearbeitung": {
+      "main": [
+        [
+          {
+            "node": "Bestätigungsseite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "pm4-capstone"
+  }
+}

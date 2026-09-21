@@ -10,11 +10,17 @@ expensive to arrive at.
 
 | # | Date(s) | Summary | Left open |
 |---|---|---|---|
+| [002](002-n8n-escalation-handoff.md) | 2026-09-20 | **Different course** (AI Tools Expert capstone), in a copy of the repo at `C:\_dev\Prototype_PM4_for2608`. Added an n8n human-in-the-loop hand-off: prefilled form link in the escalation branch → case reference → mail to citizen and caseworker. Pipeline untouched. Fixed an HTML-escaping hole in the Code node | Form → Code → completion page verified in a throwaway n8n container after fixing two Form Trigger defects (see entry); **no mail sent yet**; one-pager and 2-min video outstanding |
 | [001](001-prototype-build-and-deploy.md) | 2026-08-26 → 2026-09-04 | Built the PM4 prototype from the written report's spec; corpus reconnaissance turned up five findings that contradict the report; migrated Anthropic → Gemini; deployed to Streamlit Cloud; restyled the demo to match gemeindeschwyz.ch | Evaluation chain never run end to end — threshold still the 0.82 placeholder, no PAA figures, caseworker review sheet not produced |
 
 ---
 
 ## Current state, in one paragraph
+
+**This working copy also carries the AI Tools Expert capstone** (entry 002): the
+escalation branch now hands off to an n8n workflow that mails the citizen and the
+caseworker. The app side and the form/completion flow are verified; SMTP delivery has
+not been exercised yet. Everything below describes PM4 itself, which is unchanged by that work.
 
 The prototype works end to end and is deployed. The corpus (7 documents, 36
 chunks) covers municipal road traffic and parking for Gemeinde Schwyz. The

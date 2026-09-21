@@ -109,6 +109,20 @@ and the rule-of-three bound.
 
 ---
 
+## Escalation hand-off (n8n)
+
+This working copy carries a second deliverable for a different course, the SCI
+**AI Tools Expert Training** capstone: the escalation branch now hands the
+inquiry to an n8n workflow that issues a case reference and mails both the
+citizen and the caseworker.
+
+The prototype decided *that* an inquiry needs a human but had nowhere to send it.
+The hand-off closes that gap without touching retrieval, scoring, coverage or
+routing. Setup, the parameter contract and the limits are in
+[`n8n/README.md`](n8n/README.md).
+
+---
+
 ## Layout
 
 ```
@@ -123,6 +137,8 @@ src/coverage.py          REQ-11 coverage check
 src/routing.py           hard routing + confidence escalation (report 4.4)
 src/auditlog.py          pseudonymised audit log (REQ-08/09)
 src/pipeline.py          orchestration
+src/handoff.py           prefilled hand-off URL into the n8n case intake
+n8n/                     escalation workflow (AI Tools capstone) — see n8n/README.md
 eval/testset.yaml        50 German queries with gold facts
 eval/run_eval.py         batch run
 eval/label.py            pre-label + caseworker review sheet
